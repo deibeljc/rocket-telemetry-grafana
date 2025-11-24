@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"fmt"
-	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -58,7 +57,7 @@ func NewRocketSimulation() *RocketSimulation {
 }
 
 func (s *RocketSimulation) Tick() TelemetryPacket {
-	dt := 0.1 // Time step in seconds (approximate if called every 100ms)
+	dt := 0.5 // Time step in seconds (approximate if called every 500ms)
 	now := time.Now()
 	elapsed := now.Sub(s.startTime).Seconds()
 
@@ -67,7 +66,7 @@ func (s *RocketSimulation) Tick() TelemetryPacket {
 	case LANDED:
 		if elapsed > 5 { // Launch after 5 seconds
 			s.state = LAUNCHING
-			s.velocity = 100 // Initial boost
+			s.velocity = 150
 		}
 	case LAUNCHING:
 		s.altitude += s.velocity * dt
@@ -87,13 +86,17 @@ func (s *RocketSimulation) Tick() TelemetryPacket {
 			s.altitude = 0
 			s.velocity = 0
 			s.state = LANDED
-			s.startTime = now // Reset for loop? Or just stay landed.
+			s.startTime = now
+			s.lat = 37.7749
+			s.lon = -122.4194
 		}
 	}
 
-	// Simulate GPS drift
-	s.lat += (math.Sin(elapsed) * 0.0001) * dt
-	s.lon += (math.Cos(elapsed) * 0.0001) * dt
+	// Simulate GPS movement along a line during flight
+	if s.state == LAUNCHING || s.state == APEX || s.state == DESCENDING {
+		s.lat += 0.0001 * dt
+		s.lon += 0.0001 * dt
+	}
 
 	return TelemetryPacket{
 		Signal:    -50,

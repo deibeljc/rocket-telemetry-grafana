@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { PanelProps } from '@grafana/data';
 import { SimpleOptions } from '../types';
 import { css } from '@emotion/css';
@@ -38,66 +38,89 @@ const getStyles = (theme: any) => {
 export const SimplePanel: React.FC<Props> = (props) => {
   const { data, width, height, fieldConfig, id } = props;
   const styles = useStyles2(getStyles);
-  const { points, lastPoint, hasData } = useSimplePanelViewModel(props);
+  const { path, lastPoint, hasData } = useSimplePanelViewModel(props);
 
-  if (!hasData) {
-    return <PanelDataErrorView fieldConfig={fieldConfig} panelId={id} data={data} needsStringField />;
-  }
+  const [manualViewState, setManualViewState] = useState<any>(null);
+  const [isManuallyControlling, setIsManuallyControlling] = useState(false);
 
-  const layers = [
-    new PathLayer({
-      id: 'path-layer',
-      data: [{ path: points.map((p) => [p.lng, p.lat, p.alt]) }],
-      pickable: true,
-      widthScale: 20,
-      widthMinPixels: 2,
-      getPath: (d) => d.path,
-      getColor: [255, 0, 0],
-      getWidth: 2,
-    }),
-    lastPoint &&
-      new ScatterplotLayer({
-        id: 'scatter-layer',
-        data: [lastPoint],
-        pickable: true,
-        opacity: 0.8,
-        stroked: true,
-        filled: true,
-        radiusScale: 6,
-        radiusMinPixels: 1,
-        radiusMaxPixels: 100,
-        lineWidthMinPixels: 1,
-        getPosition: (d) => [d.lng, d.lat, d.alt],
-        getRadius: 5,
-        getFillColor: [0, 112, 243],
-        getLineColor: [255, 255, 255],
-      }),
-  ];
-
-  const initialViewState = lastPoint
-    ? {
+  const autoViewState = useMemo(() => {
+    if (lastPoint) {
+      return {
         longitude: lastPoint.lng,
         latitude: lastPoint.lat,
         zoom: 14,
         pitch: 70,
         bearing: 0,
-      }
-    : {
-        longitude: 0,
-        latitude: 0,
-        zoom: 1,
-        pitch: 0,
-        bearing: 0,
       };
+    }
+    return {
+      longitude: 0,
+      latitude: 0,
+      zoom: 1,
+      pitch: 0,
+      bearing: 0,
+    };
+  }, [lastPoint]);
+
+  const viewState = isManuallyControlling && manualViewState ? manualViewState : autoViewState;
+
+  const onViewStateChange = useCallback(({ viewState: newViewState, interactionState }: any) => {
+    setManualViewState(newViewState);
+    if (
+      interactionState &&
+      (interactionState.isDragging || interactionState.isZooming || interactionState.isRotating)
+    ) {
+      setIsManuallyControlling(true);
+    }
+  }, []);
+
+  const layers = useMemo(() => {
+    return [
+      new PathLayer({
+        id: 'path-layer',
+        data: [{ path: path }],
+        pickable: false,
+        widthScale: 10,
+        widthMinPixels: 2,
+        getPath: (d) => d.path,
+        getColor: [255, 0, 0],
+        getWidth: 2,
+        billboard: true,
+      }),
+      lastPoint &&
+        new ScatterplotLayer({
+          id: 'scatter-layer',
+          data: [lastPoint],
+          pickable: true,
+          opacity: 0.8,
+          stroked: true,
+          filled: true,
+          radiusScale: 6,
+          radiusMinPixels: 1,
+          radiusMaxPixels: 100,
+          lineWidthMinPixels: 1,
+          getPosition: (d) => [d.lng, d.lat, d.alt],
+          getRadius: 5,
+          getFillColor: [0, 112, 243],
+          getLineColor: [255, 255, 255],
+        }),
+    ].filter(Boolean);
+  }, [path, lastPoint]);
+
+  if (!hasData) {
+    return <PanelDataErrorView fieldConfig={fieldConfig} panelId={id} data={data} needsStringField />;
+  }
 
   return (
     <div className={styles.wrapper} style={{ width, height }}>
       <DeckGL
-        initialViewState={initialViewState}
+        viewState={viewState}
+        onViewStateChange={onViewStateChange}
         controller={true}
         layers={layers}
         style={{ width: '100%', height: '100%' }}
       >
+        {/* @ts-ignore */}
         <Map mapLib={maplibregl} mapStyle="https://demotiles.maplibre.org/style.json" />
       </DeckGL>
 

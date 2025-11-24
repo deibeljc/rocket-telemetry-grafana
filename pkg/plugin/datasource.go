@@ -47,7 +47,7 @@ func (d *Datasource) RunStream(ctx context.Context, req *backend.RunStreamReques
 
 	sim := NewRocketSimulation()
 
-	ticker := time.NewTicker(time.Duration(100) * time.Millisecond)
+	ticker := time.NewTicker(time.Duration(500) * time.Millisecond)
 	defer ticker.Stop()
 
 	// Helper to check if a field is requested
@@ -102,8 +102,6 @@ func (d *Datasource) RunStream(ctx context.Context, req *backend.RunStreamReques
 			if shouldInclude("signal") {
 				frame.Fields = append(frame.Fields, data.NewField("signal", nil, []int64{int64(packet.Signal)}))
 			}
-
-			log.DefaultLogger.Info("Sending frame", "frame", frame)
 
 			err := sender.SendFrame(frame, data.IncludeAll)
 

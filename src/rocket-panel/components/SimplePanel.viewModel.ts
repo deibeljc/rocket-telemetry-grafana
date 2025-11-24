@@ -9,7 +9,7 @@ export interface RocketPoint {
 }
 
 export interface SimplePanelViewModel {
-  points: RocketPoint[];
+  path: [number, number, number][];
   lastPoint?: RocketPoint;
   hasData: boolean;
 }
@@ -19,7 +19,7 @@ export const useSimplePanelViewModel = (props: PanelProps<SimpleOptions>): Simpl
 
   return useMemo(() => {
     if (data.series.length === 0) {
-      return { points: [], hasData: false };
+      return { path: [], hasData: false };
     }
 
     const frame = data.series[0];
@@ -37,11 +37,12 @@ export const useSimplePanelViewModel = (props: PanelProps<SimpleOptions>): Simpl
       frame.fields.find((f) => f.name.toLowerCase() === 'altitude');
 
     if (!latField || !longField || !altField) {
-      return { points: [], hasData: false };
+      return { path: [], hasData: false };
     }
 
-    const points: RocketPoint[] = [];
+    const path: [number, number, number][] = [];
     const length = frame.length;
+    let lastPoint: RocketPoint | undefined;
 
     for (let i = 0; i < length; i++) {
       const lat = latField.values[i];
@@ -49,14 +50,15 @@ export const useSimplePanelViewModel = (props: PanelProps<SimpleOptions>): Simpl
       const alt = altField.values[i];
 
       if (typeof lat === 'number' && typeof lng === 'number' && typeof alt === 'number') {
-        points.push({ lat, lng, alt });
+        path.push([lng, lat, alt]);
+        lastPoint = { lat, lng, alt };
       }
     }
 
     return {
-      points,
-      lastPoint: points.length > 0 ? points[points.length - 1] : undefined,
-      hasData: points.length > 0,
+      path,
+      lastPoint,
+      hasData: path.length > 0,
     };
   }, [data, options]);
 };
