@@ -8,18 +8,26 @@ export interface RocketPoint {
   alt: number;
 }
 
+export interface AltitudeRange {
+  min: number;
+  max: number;
+}
+
 export interface SimplePanelViewModel {
   path: [number, number, number][];
   lastPoint?: RocketPoint;
   hasData: boolean;
+  altitudeRange: AltitudeRange;
 }
+
+const DEFAULT_RANGE: AltitudeRange = { min: 0, max: 1 };
 
 export const useSimplePanelViewModel = (props: PanelProps<SimpleOptions>): SimplePanelViewModel => {
   const { data, options } = props;
 
   return useMemo(() => {
     if (data.series.length === 0) {
-      return { path: [], hasData: false };
+      return { path: [], hasData: false, altitudeRange: DEFAULT_RANGE };
     }
 
     const frame = data.series[0];
@@ -37,12 +45,14 @@ export const useSimplePanelViewModel = (props: PanelProps<SimpleOptions>): Simpl
       frame.fields.find((f) => f.name.toLowerCase() === 'altitude');
 
     if (!latField || !longField || !altField) {
-      return { path: [], hasData: false };
+      return { path: [], hasData: false, altitudeRange: DEFAULT_RANGE };
     }
 
     const path: [number, number, number][] = [];
     const length = frame.length;
     let lastPoint: RocketPoint | undefined;
+    let minAlt = Infinity;
+    let maxAlt = -Infinity;
 
     for (let i = 0; i < length; i++) {
       const lat = latField.values[i];
@@ -52,6 +62,8 @@ export const useSimplePanelViewModel = (props: PanelProps<SimpleOptions>): Simpl
       if (typeof lat === 'number' && typeof lng === 'number' && typeof alt === 'number') {
         path.push([lng, lat, alt]);
         lastPoint = { lat, lng, alt };
+        minAlt = Math.min(minAlt, alt);
+        maxAlt = Math.max(maxAlt, alt);
       }
     }
 
@@ -59,6 +71,7 @@ export const useSimplePanelViewModel = (props: PanelProps<SimpleOptions>): Simpl
       path,
       lastPoint,
       hasData: path.length > 0,
+      altitudeRange: path.length > 0 ? { min: minAlt, max: maxAlt } : DEFAULT_RANGE,
     };
   }, [data, options]);
 };
